@@ -8,9 +8,9 @@ package org.eclipse.aether.util.graph.selector;
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * 
+ *
  *  http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -34,14 +34,14 @@ import org.eclipse.aether.graph.Dependency;
  * A dependency selector that filters transitive dependencies based on their scope. Direct dependencies are always
  * included regardless of their scope. <em>Note:</em> This filter does not assume any relationships between the scopes.
  * In particular, the filter is not aware of scopes that logically include other scopes.
- * 
+ *
  * @see Dependency#getScope()
  */
 public final class ScopeDependencySelector
     implements DependencySelector
 {
 
-    private final boolean transitive;
+    private final int depth;
 
     private final Collection<String> included;
 
@@ -49,13 +49,14 @@ public final class ScopeDependencySelector
 
     /**
      * Creates a new selector using the specified includes and excludes.
-     * 
+     *
      * @param included The set of scopes to include, may be {@code null} or empty to include any scope.
      * @param excluded The set of scopes to exclude, may be {@code null} or empty to exclude no scope.
      */
     public ScopeDependencySelector( Collection<String> included, Collection<String> excluded )
     {
-        transitive = false;
+        super();
+        this.depth = 0;
         this.included = clone( included );
         this.excluded = clone( excluded );
     }
@@ -82,7 +83,7 @@ public final class ScopeDependencySelector
 
     /**
      * Creates a new selector using the specified excludes.
-     * 
+     *
      * @param excluded The set of scopes to exclude, may be {@code null} or empty to exclude no scope.
      */
     public ScopeDependencySelector( String... excluded )
@@ -90,33 +91,28 @@ public final class ScopeDependencySelector
         this( null, ( excluded != null ) ? Arrays.asList( excluded ) : null );
     }
 
-    private ScopeDependencySelector( boolean transitive, Collection<String> included, Collection<String> excluded )
+    private ScopeDependencySelector( int depth, Collection<String> included, Collection<String> excluded )
     {
-        this.transitive = transitive;
+        super();
+        this.depth = depth;
         this.included = included;
         this.excluded = excluded;
     }
 
     public boolean selectDependency( Dependency dependency )
     {
-        if ( !transitive )
-        {
-            return true;
-        }
+        return this.depth < 2
+                   || ( ( included == null || included.contains( dependency.getScope() ) )
+                        && ( excluded == null || !excluded.contains( dependency.getScope() ) ) );
 
-        String scope = dependency.getScope();
-        return ( included == null || included.contains( scope ) )
-                && ( excluded == null || !excluded.contains( scope ) );
     }
 
     public DependencySelector deriveChildSelector( DependencyCollectionContext context )
     {
-        if ( this.transitive || context.getDependency() == null )
-        {
-            return this;
-        }
+        return this.depth >= 2
+                   ? this
+                   : new ScopeDependencySelector( this.depth + 1, this.included, this.excluded );
 
-        return new ScopeDependencySelector( true, included, excluded );
     }
 
     @Override
@@ -132,15 +128,17 @@ public final class ScopeDependencySelector
         }
 
         ScopeDependencySelector that = (ScopeDependencySelector) obj;
-        return transitive == that.transitive && Objects.equals( included, that.included )
-                && Objects.equals( excluded, that.excluded );
+        return this.depth == that.depth
+                   && Objects.equals( included, that.included )
+                   && Objects.equals( excluded, that.excluded );
+
     }
 
     @Override
     public int hashCode()
     {
         int hash = 17;
-        hash = hash * 31 + ( transitive ? 1 : 0 );
+        hash = hash * 31 + this.depth;
         hash = hash * 31 + ( included != null ? included.hashCode() : 0 );
         hash = hash * 31 + ( excluded != null ? excluded.hashCode() : 0 );
         return hash;
