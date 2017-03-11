@@ -372,15 +372,15 @@ public class DefaultDependencyCollector
                                     DependencyTraverser depTraverser, VersionFilter verFilter, Dependency dependency,
                                     List<Artifact> relocations, boolean disableVersionManagement )
     {
+        PremanagedDependency preManaged =
+            PremanagedDependency.create( depManager, dependency, disableVersionManagement, args.premanagedState );
+
+        dependency = preManaged.managedDependency;
 
         if ( depSelector != null && !depSelector.selectDependency( dependency ) )
         {
             return;
         }
-
-        PremanagedDependency preManaged =
-            PremanagedDependency.create( depManager, dependency, disableVersionManagement, args.premanagedState );
-        dependency = preManaged.managedDependency;
 
         boolean noDescriptor = isLackingDescriptor( dependency.getArtifact() );
 
@@ -584,6 +584,7 @@ public class DefaultDependencyCollector
         DefaultDependencyNode child =
             createDependencyNode( relocations, preManaged, rangeResult, version, d, descriptorResult.getAliases(),
                                   cycleNode.getRepositories(), cycleNode.getRequestContext() );
+
         child.setChildren( cycleNode.getChildren() );
         return child;
     }
