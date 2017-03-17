@@ -47,13 +47,23 @@ public final class TransitiveDependencyManager
 
     private final Map<Object, String> managedVersions;
 
+    private final Map<Object, String> managedVersionsSourceHints;
+
     private final Map<Object, String> managedScopes;
+
+    private final Map<Object, String> managedScopesSourceHints;
 
     private final Map<Object, Boolean> managedOptionals;
 
+    private final Map<Object, String> managedOptionalsSourceHints;
+
     private final Map<Object, String> managedLocalPaths;
 
+    private final Map<Object, String> managedLocalPathsSourceHints;
+
     private final Map<Object, Collection<Exclusion>> managedExclusions;
+
+    private final Map<Object, Collection<String>> managedExclusionsSourceHints;
 
     private final int depth;
 
@@ -65,33 +75,52 @@ public final class TransitiveDependencyManager
     public TransitiveDependencyManager()
     {
         this( 0, Collections.<Object, String>emptyMap(), Collections.<Object, String>emptyMap(),
+              Collections.<Object, String>emptyMap(), Collections.<Object, String>emptyMap(),
               Collections.<Object, Boolean>emptyMap(), Collections.<Object, String>emptyMap(),
-              Collections.<Object, Collection<Exclusion>>emptyMap() );
+              Collections.<Object, String>emptyMap(), Collections.<Object, String>emptyMap(),
+              Collections.<Object, Collection<Exclusion>>emptyMap(),
+              Collections.<Object, Collection<String>>emptyMap() );
     }
 
-    private TransitiveDependencyManager( final int depth,
-                                         final Map<Object, String> managedVersions,
-                                         final Map<Object, String> managedScopes,
-                                         final Map<Object, Boolean> managedOptionals,
-                                         final Map<Object, String> managedLocalPaths,
-                                         final Map<Object, Collection<Exclusion>> managedExclusions )
+    @SuppressWarnings( "checkstyle:parameternumber" )
+    private TransitiveDependencyManager( int depth,
+                                         Map<Object, String> managedVersions,
+                                         Map<Object, String> managedVersionsSourceHints,
+                                         Map<Object, String> managedScopes,
+                                         Map<Object, String> managedScopesSourceHints,
+                                         Map<Object, Boolean> managedOptionals,
+                                         Map<Object, String> managedOptionalsSourceHints,
+                                         Map<Object, String> managedLocalPaths,
+                                         Map<Object, String> managedLocalPathsSourceHints,
+                                         Map<Object, Collection<Exclusion>> managedExclusions,
+                                         Map<Object, Collection<String>> managedExclusionsSourceHints )
     {
         super();
         this.depth = depth;
         this.managedVersions = managedVersions;
+        this.managedVersionsSourceHints = managedVersionsSourceHints;
         this.managedScopes = managedScopes;
+        this.managedScopesSourceHints = managedScopesSourceHints;
         this.managedOptionals = managedOptionals;
+        this.managedOptionalsSourceHints = managedOptionalsSourceHints;
         this.managedLocalPaths = managedLocalPaths;
+        this.managedLocalPathsSourceHints = managedLocalPathsSourceHints;
         this.managedExclusions = managedExclusions;
+        this.managedExclusionsSourceHints = managedExclusionsSourceHints;
     }
 
     public DependencyManager deriveChildManager( final DependencyCollectionContext context )
     {
-        Map<Object, String> versions = managedVersions;
-        Map<Object, String> scopes = managedScopes;
-        Map<Object, Boolean> optionals = managedOptionals;
-        Map<Object, String> localPaths = managedLocalPaths;
-        Map<Object, Collection<Exclusion>> exclusions = managedExclusions;
+        Map<Object, String> versions = this.managedVersions;
+        Map<Object, String> versionsSourceHints = this.managedVersionsSourceHints;
+        Map<Object, String> scopes = this.managedScopes;
+        Map<Object, String> scopesSourceHints = this.managedScopesSourceHints;
+        Map<Object, Boolean> optionals = this.managedOptionals;
+        Map<Object, String> optionalsSourceHints = this.managedOptionalsSourceHints;
+        Map<Object, String> localPaths = this.managedLocalPaths;
+        Map<Object, String> localPathsSourceHints = this.managedLocalPathsSourceHints;
+        Map<Object, Collection<Exclusion>> exclusions = this.managedExclusions;
+        Map<Object, Collection<String>> exclusionsSourceHints = this.managedExclusionsSourceHints;
 
         for ( Dependency managedDependency : context.getManagedDependencies() )
         {
@@ -101,11 +130,13 @@ public final class TransitiveDependencyManager
             String version = artifact.getVersion();
             if ( version.length() > 0 && !versions.containsKey( key ) )
             {
-                if ( versions == managedVersions )
+                if ( versions == this.managedVersions )
                 {
-                    versions = new HashMap<>( managedVersions );
+                    versions = new HashMap<>( this.managedVersions );
+                    versionsSourceHints = new HashMap<>( this.managedVersionsSourceHints );
                 }
                 versions.put( key, version );
+                versionsSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             String scope = managedDependency.getScope();
@@ -114,18 +145,22 @@ public final class TransitiveDependencyManager
                 if ( scopes == this.managedScopes )
                 {
                     scopes = new HashMap<>( this.managedScopes );
+                    scopesSourceHints = new HashMap<>( this.managedScopesSourceHints );
                 }
                 scopes.put( key, scope );
+                scopesSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             Boolean optional = managedDependency.getOptional();
             if ( optional != null && !optionals.containsKey( key ) )
             {
-                if ( optionals == managedOptionals )
+                if ( optionals == this.managedOptionals )
                 {
-                    optionals = new HashMap<>( managedOptionals );
+                    optionals = new HashMap<>( this.managedOptionals );
+                    optionalsSourceHints = new HashMap<>( this.managedOptionalsSourceHints );
                 }
                 optionals.put( key, optional );
+                optionalsSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             String localPath = managedDependency.getArtifact().getProperty( ArtifactProperties.LOCAL_PATH, null );
@@ -133,16 +168,19 @@ public final class TransitiveDependencyManager
             {
                 if ( localPaths == this.managedLocalPaths )
                 {
-                    localPaths = new HashMap<>( managedLocalPaths );
+                    localPaths = new HashMap<>( this.managedLocalPaths );
+                    localPathsSourceHints = new HashMap<>( this.managedLocalPathsSourceHints );
                 }
                 localPaths.put( key, localPath );
+                localPathsSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             if ( !managedDependency.getExclusions().isEmpty() )
             {
-                if ( exclusions == managedExclusions )
+                if ( exclusions == this.managedExclusions )
                 {
-                    exclusions = new HashMap<>( managedExclusions );
+                    exclusions = new HashMap<>( this.managedExclusions );
+                    exclusionsSourceHints = new HashMap<>( this.managedExclusionsSourceHints );
                 }
                 Collection<Exclusion> managed = exclusions.get( key );
                 if ( managed == null )
@@ -151,11 +189,24 @@ public final class TransitiveDependencyManager
                     exclusions.put( key, managed );
                 }
                 managed.addAll( managedDependency.getExclusions() );
+
+                Collection<String> managedSourceHints = exclusionsSourceHints.get( key );
+                if ( managedSourceHints == null )
+                {
+                    managedSourceHints = new LinkedHashSet<>();
+                    exclusionsSourceHints.put( key, managedSourceHints );
+                }
+
+                managedSourceHints.add( managedDependency.getSourceHint() );
             }
         }
 
-        return new TransitiveDependencyManager( depth + 1, versions, scopes, optionals, localPaths,
-                                                exclusions );
+        return new TransitiveDependencyManager( depth + 1,
+                                                versions, versionsSourceHints,
+                                                scopes, scopesSourceHints,
+                                                optionals, optionalsSourceHints,
+                                                localPaths, localPathsSourceHints,
+                                                exclusions, exclusionsSourceHints );
 
     }
 
@@ -170,8 +221,12 @@ public final class TransitiveDependencyManager
             String version = managedVersions.get( key );
             if ( version != null )
             {
-                management = new DependencyManagement();
+                if ( management == null )
+                {
+                    management = new DependencyManagement();
+                }
                 management.setVersion( version );
+                management.setVersionSourceHint( this.managedVersionsSourceHints.get( key ) );
             }
 
             String scope = managedScopes.get( key );
@@ -182,17 +237,19 @@ public final class TransitiveDependencyManager
                     management = new DependencyManagement();
                 }
                 management.setScope( scope );
+                management.setScopeSourceHint( this.managedScopesSourceHints.get( key ) );
 
-                if ( !JavaScopes.SYSTEM.equals( scope ) && dependency.getArtifact().getProperty(
-                        ArtifactProperties.LOCAL_PATH, null ) != null )
+                if ( !JavaScopes.SYSTEM.equals( scope )
+                         && dependency.getArtifact().getProperty( ArtifactProperties.LOCAL_PATH, null ) != null )
                 {
                     Map<String, String> properties = new HashMap<>( dependency.getArtifact().getProperties() );
                     properties.remove( ArtifactProperties.LOCAL_PATH );
                     management.setProperties( properties );
+                    management.setPropertiesSourceHint( this.managedScopesSourceHints.get( key ) );
                 }
             }
 
-            if ( ( JavaScopes.SYSTEM.equals( scope ) )
+            if ( JavaScopes.SYSTEM.equals( scope )
                      || ( scope == null && JavaScopes.SYSTEM.equals( dependency.getScope() ) ) )
             {
                 String localPath = managedLocalPaths.get( key );
@@ -205,6 +262,7 @@ public final class TransitiveDependencyManager
                     Map<String, String> properties = new HashMap<>( dependency.getArtifact().getProperties() );
                     properties.put( ArtifactProperties.LOCAL_PATH, localPath );
                     management.setProperties( properties );
+                    management.setPropertiesSourceHint( this.managedLocalPathsSourceHints.get( key ) );
                 }
             }
 
@@ -216,6 +274,7 @@ public final class TransitiveDependencyManager
                     management = new DependencyManagement();
                 }
                 management.setOptional( optional );
+                management.setOptionalitySourceHint( this.managedOptionalsSourceHints.get( key ) );
             }
         }
 
@@ -229,6 +288,12 @@ public final class TransitiveDependencyManager
             Collection<Exclusion> result = new LinkedHashSet<>( dependency.getExclusions() );
             result.addAll( exclusions );
             management.setExclusions( result );
+
+            final Object sourceHint = this.managedExclusionsSourceHints.get( key );
+            if ( sourceHint != null )
+            {
+                management.setExclusionsSourceHint( sourceHint.toString() );
+            }
         }
 
         return management;

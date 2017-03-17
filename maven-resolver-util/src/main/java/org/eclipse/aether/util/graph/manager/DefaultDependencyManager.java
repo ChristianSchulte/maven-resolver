@@ -52,13 +52,23 @@ public final class DefaultDependencyManager
 
     private final Map<Object, String> managedVersions;
 
+    private final Map<Object, String> managedVersionsSourceHints;
+
     private final Map<Object, String> managedScopes;
+
+    private final Map<Object, String> managedScopesSourceHints;
 
     private final Map<Object, Boolean> managedOptionals;
 
+    private final Map<Object, String> managedOptionalsSourceHints;
+
     private final Map<Object, String> managedLocalPaths;
 
+    private final Map<Object, String> managedLocalPathsSourceHints;
+
     private final Map<Object, Collection<Exclusion>> managedExclusions;
+
+    private final Map<Object, Collection<String>> managedExclusionsSourceHints;
 
     private int hashCode;
 
@@ -68,31 +78,50 @@ public final class DefaultDependencyManager
     public DefaultDependencyManager()
     {
         this( Collections.<Object, String>emptyMap(), Collections.<Object, String>emptyMap(),
+              Collections.<Object, String>emptyMap(), Collections.<Object, String>emptyMap(),
               Collections.<Object, Boolean>emptyMap(), Collections.<Object, String>emptyMap(),
-              Collections.<Object, Collection<Exclusion>>emptyMap() );
+              Collections.<Object, String>emptyMap(), Collections.<Object, String>emptyMap(),
+              Collections.<Object, Collection<Exclusion>>emptyMap(),
+              Collections.<Object, Collection<String>>emptyMap() );
     }
 
+    @SuppressWarnings( "checkstyle:parameternumber" )
     private DefaultDependencyManager( final Map<Object, String> managedVersions,
+                                      final Map<Object, String> managedVersionsSourceHints,
                                       final Map<Object, String> managedScopes,
+                                      final Map<Object, String> managedScopesSourceHints,
                                       final Map<Object, Boolean> managedOptionals,
+                                      final Map<Object, String> managedOptionalsSourceHints,
                                       final Map<Object, String> managedLocalPaths,
-                                      final Map<Object, Collection<Exclusion>> managedExclusions )
+                                      final Map<Object, String> managedLocalPathsSourceHints,
+                                      final Map<Object, Collection<Exclusion>> managedExclusions,
+                                      final Map<Object, Collection<String>> managedExclusionsSourceHints )
     {
         super();
         this.managedVersions = managedVersions;
+        this.managedVersionsSourceHints = managedVersionsSourceHints;
         this.managedScopes = managedScopes;
+        this.managedScopesSourceHints = managedScopesSourceHints;
         this.managedOptionals = managedOptionals;
+        this.managedOptionalsSourceHints = managedOptionalsSourceHints;
         this.managedLocalPaths = managedLocalPaths;
+        this.managedLocalPathsSourceHints = managedLocalPathsSourceHints;
         this.managedExclusions = managedExclusions;
+        this.managedExclusionsSourceHints = managedExclusionsSourceHints;
     }
 
     public DependencyManager deriveChildManager( final DependencyCollectionContext context )
     {
         Map<Object, String> versions = this.managedVersions;
+        Map<Object, String> versionsSourceHints = this.managedVersionsSourceHints;
         Map<Object, String> scopes = this.managedScopes;
+        Map<Object, String> scopesSourceHints = this.managedScopesSourceHints;
         Map<Object, Boolean> optionals = this.managedOptionals;
+        Map<Object, String> optionalsSourceHints = this.managedOptionalsSourceHints;
         Map<Object, String> localPaths = this.managedLocalPaths;
+        Map<Object, String> localPathsSourceHints = this.managedLocalPathsSourceHints;
         Map<Object, Collection<Exclusion>> exclusions = this.managedExclusions;
+        Map<Object, Collection<String>> exclusionsSourceHints = this.managedExclusionsSourceHints;
 
         for ( Dependency managedDependency : context.getManagedDependencies() )
         {
@@ -104,9 +133,11 @@ public final class DefaultDependencyManager
             {
                 if ( versions == this.managedVersions )
                 {
-                    versions = new HashMap<>( this.managedVersions );
+                    versions = new HashMap<Object, String>( this.managedVersions );
+                    versionsSourceHints = new HashMap<Object, String>( this.managedVersionsSourceHints );
                 }
                 versions.put( key, version );
+                versionsSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             String scope = managedDependency.getScope();
@@ -114,9 +145,11 @@ public final class DefaultDependencyManager
             {
                 if ( scopes == this.managedScopes )
                 {
-                    scopes = new HashMap<>( this.managedScopes );
+                    scopes = new HashMap<Object, String>( this.managedScopes );
+                    scopesSourceHints = new HashMap<Object, String>( this.managedScopesSourceHints );
                 }
                 scopes.put( key, scope );
+                scopesSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             Boolean optional = managedDependency.getOptional();
@@ -124,9 +157,11 @@ public final class DefaultDependencyManager
             {
                 if ( optionals == this.managedOptionals )
                 {
-                    optionals = new HashMap<>( this.managedOptionals );
+                    optionals = new HashMap<Object, Boolean>( this.managedOptionals );
+                    optionalsSourceHints = new HashMap<Object, String>( this.managedOptionalsSourceHints );
                 }
                 optionals.put( key, optional );
+                optionalsSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             String localPath = managedDependency.getArtifact().getProperty( ArtifactProperties.LOCAL_PATH, null );
@@ -134,16 +169,19 @@ public final class DefaultDependencyManager
             {
                 if ( localPaths == this.managedLocalPaths )
                 {
-                    localPaths = new HashMap<>( this.managedLocalPaths );
+                    localPaths = new HashMap<Object, String>( this.managedLocalPaths );
+                    localPathsSourceHints = new HashMap<Object, String>( this.managedLocalPathsSourceHints );
                 }
                 localPaths.put( key, localPath );
+                localPathsSourceHints.put( key, managedDependency.getSourceHint() );
             }
 
             if ( !managedDependency.getExclusions().isEmpty() )
             {
                 if ( exclusions == this.managedExclusions )
                 {
-                    exclusions = new HashMap<>( this.managedExclusions );
+                    exclusions = new HashMap<Object, Collection<Exclusion>>( this.managedExclusions );
+                    exclusionsSourceHints = new HashMap<>( this.managedExclusionsSourceHints );
                 }
                 Collection<Exclusion> managed = exclusions.get( key );
                 if ( managed == null )
@@ -152,10 +190,22 @@ public final class DefaultDependencyManager
                     exclusions.put( key, managed );
                 }
                 managed.addAll( managedDependency.getExclusions() );
+
+                Collection<String> managedSources = exclusionsSourceHints.get( key );
+                if ( managedSources == null )
+                {
+                    managedSources = new LinkedHashSet<String>();
+                    exclusionsSourceHints.put( key, managedSources );
+                }
+
+                managedSources.add( managedDependency.getSourceHint() );
             }
         }
 
-        return new DefaultDependencyManager( versions, scopes, optionals, localPaths, exclusions );
+        return new DefaultDependencyManager( versions, versionsSourceHints, scopes, scopesSourceHints, optionals,
+                                             optionalsSourceHints, localPaths, localPathsSourceHints, exclusions,
+                                             exclusionsSourceHints );
+
     }
 
     public DependencyManagement manageDependency( Dependency dependency )
@@ -172,6 +222,7 @@ public final class DefaultDependencyManager
                 management = new DependencyManagement();
             }
             management.setVersion( version );
+            management.setVersionSourceHint( this.managedVersionsSourceHints.get( key ) );
         }
 
         String scope = managedScopes.get( key );
@@ -182,19 +233,19 @@ public final class DefaultDependencyManager
                 management = new DependencyManagement();
             }
             management.setScope( scope );
+            management.setScopeSourceHint( this.managedScopesSourceHints.get( key ) );
 
             if ( !JavaScopes.SYSTEM.equals( scope )
                      && dependency.getArtifact().getProperty( ArtifactProperties.LOCAL_PATH, null ) != null )
             {
-                Map<String, String> properties =
-                    new HashMap<>( dependency.getArtifact().getProperties() );
-
+                Map<String, String> properties = new HashMap<>( dependency.getArtifact().getProperties() );
                 properties.remove( ArtifactProperties.LOCAL_PATH );
                 management.setProperties( properties );
+                management.setPropertiesSourceHint( this.managedScopesSourceHints.get( key ) );
             }
         }
 
-        if ( ( scope != null && JavaScopes.SYSTEM.equals( scope ) )
+        if ( JavaScopes.SYSTEM.equals( scope )
                  || ( scope == null && JavaScopes.SYSTEM.equals( dependency.getScope() ) ) )
         {
             String localPath = managedLocalPaths.get( key );
@@ -205,11 +256,10 @@ public final class DefaultDependencyManager
                     management = new DependencyManagement();
                 }
 
-                Map<String, String> properties =
-                    new HashMap<>( dependency.getArtifact().getProperties() );
-
+                Map<String, String> properties = new HashMap<>( dependency.getArtifact().getProperties() );
                 properties.put( ArtifactProperties.LOCAL_PATH, localPath );
                 management.setProperties( properties );
+                management.setPropertiesSourceHint( this.managedLocalPathsSourceHints.get( key ) );
             }
         }
 
@@ -221,6 +271,7 @@ public final class DefaultDependencyManager
                 management = new DependencyManagement();
             }
             management.setOptional( optional );
+            management.setOptionalitySourceHint( this.managedOptionalsSourceHints.get( key ) );
         }
 
         Collection<Exclusion> exclusions = managedExclusions.get( key );
@@ -233,6 +284,12 @@ public final class DefaultDependencyManager
             Collection<Exclusion> result = new LinkedHashSet<>( dependency.getExclusions() );
             result.addAll( exclusions );
             management.setExclusions( result );
+
+            final Object sourceHint = this.managedExclusionsSourceHints.get( key );
+            if ( sourceHint != null )
+            {
+                management.setExclusionsSourceHint( sourceHint.toString() );
+            }
         }
 
         return management;
