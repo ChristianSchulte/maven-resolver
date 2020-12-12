@@ -8,9 +8,9 @@ package org.eclipse.aether.internal.impl;
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * 
+ *
  *  http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -22,6 +22,7 @@ package org.eclipse.aether.internal.impl;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -45,6 +46,9 @@ public final class Maven2RepositoryLayoutFactory
 {
 
     static final String CONFIG_PROP_SIGNATURE_CHECKSUMS = "aether.checksums.forSignature";
+    static final String CONFIG_PROP_CHECKSUMS_ALGORITHMS = "aether.checksums.algorithms";
+
+    static final String DEFAULT_CHECKSUMS_ALGORITHMS = "SHA-1,MD5";
 
     private float priority;
 
@@ -55,7 +59,7 @@ public final class Maven2RepositoryLayoutFactory
 
     /**
      * Sets the priority of this component.
-     * 
+     *
      * @param priority The priority.
      * @return This component for chaining, never {@code null}.
      */
@@ -73,14 +77,24 @@ public final class Maven2RepositoryLayoutFactory
             throw new NoRepositoryLayoutException( repository );
         }
         boolean forSignature = ConfigUtils.getBoolean( session, false, CONFIG_PROP_SIGNATURE_CHECKSUMS );
-        return forSignature ? Maven2RepositoryLayout.INSTANCE : Maven2RepositoryLayoutEx.INSTANCE;
+        List<String> checksumsAlgorithms = Arrays.asList( ConfigUtils.getString( session,
+                DEFAULT_CHECKSUMS_ALGORITHMS, CONFIG_PROP_CHECKSUMS_ALGORITHMS ).split( "," ) );
+
+        return forSignature
+                ? new Maven2RepositoryLayout( checksumsAlgorithms )
+                : new Maven2RepositoryLayoutEx( checksumsAlgorithms );
     }
 
     private static class Maven2RepositoryLayout
         implements RepositoryLayout
     {
 
-        public static final RepositoryLayout INSTANCE = new Maven2RepositoryLayout();
+        private final List<String> checksumsAlgorithms;
+
+        protected Maven2RepositoryLayout( List<String> checksumsAlgorithms )
+        {
+            this.checksumsAlgorithms = checksumsAlgorithms;
+        }
 
         private URI toUri( String path )
         {
@@ -155,7 +169,12 @@ public final class Maven2RepositoryLayoutFactory
 
         private List<Checksum> getChecksums( URI location )
         {
-            return Arrays.asList( Checksum.forLocation( location, "SHA-1" ), Checksum.forLocation( location, "MD5" ) );
+            List<Checksum> checksums = new ArrayList<>( checksumsAlgorithms.size() );
+            for ( String algorithm : checksumsAlgorithms )
+            {
+                checksums.add( Checksum.forLocation( location, algorithm ) );
+            }
+            return checksums;
         }
 
     }
@@ -164,7 +183,10 @@ public final class Maven2RepositoryLayoutFactory
         extends Maven2RepositoryLayout
     {
 
-        public static final RepositoryLayout INSTANCE = new Maven2RepositoryLayoutEx();
+        protected Maven2RepositoryLayoutEx( List<String> checksumsAlgorithms )
+        {
+            super( checksumsAlgorithms );
+        }
 
         @Override
         public List<Checksum> getChecksums( Artifact artifact, boolean upload, URI location )

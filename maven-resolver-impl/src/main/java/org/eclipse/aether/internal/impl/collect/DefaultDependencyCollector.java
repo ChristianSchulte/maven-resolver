@@ -157,7 +157,7 @@ public class DefaultDependencyCollector
         List<Dependency> dependencies = request.getDependencies();
         List<Dependency> managedDependencies = request.getManagedDependencies();
 
-        Map<String, Object> stats = LOGGER.isDebugEnabled() ? new LinkedHashMap<String, Object>() : null;
+        Map<String, Object> stats = new LinkedHashMap<>();
         long time1 = System.nanoTime();
 
         DefaultDependencyNode node;
@@ -278,13 +278,10 @@ public class DefaultDependencyCollector
             }
         }
 
-        if ( stats != null )
-        {
-            long time3 = System.nanoTime();
-            stats.put( "DefaultDependencyCollector.collectTime", time2 - time1 );
-            stats.put( "DefaultDependencyCollector.transformTime", time3 - time2 );
-            LOGGER.debug( "Dependency collection stats: " + stats );
-        }
+        long time3 = System.nanoTime();
+        stats.put( "DefaultDependencyCollector.collectTime", time2 - time1 );
+        stats.put( "DefaultDependencyCollector.transformTime", time3 - time2 );
+        LOGGER.debug( "Dependency collection stats {}", stats );
 
         if ( errorPath != null )
         {
@@ -320,7 +317,7 @@ public class DefaultDependencyCollector
         {
             int initialCapacity = dominant.size() + recessive.size();
             result = new ArrayList<>( initialCapacity );
-            Collection<String> ids = new HashSet<String>( initialCapacity, 1.0f );
+            Collection<String> ids = new HashSet<>( initialCapacity, 1.0f );
             for ( Dependency dependency : dominant )
             {
                 ids.add( getId( dependency.getArtifact() ) );

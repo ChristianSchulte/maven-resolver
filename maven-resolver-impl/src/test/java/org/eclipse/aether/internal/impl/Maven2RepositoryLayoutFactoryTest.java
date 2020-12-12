@@ -8,9 +8,9 @@ package org.eclipse.aether.internal.impl;
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * 
+ *
  *  http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -22,6 +22,7 @@ package org.eclipse.aether.internal.impl;
 import static org.junit.Assert.*;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -160,6 +161,19 @@ public class Maven2RepositoryLayoutFactoryTest
     }
 
     @Test
+    public void testArtifactChecksums_DownloadWithCustomAlgorithms() throws NoRepositoryLayoutException
+    {
+        session.setConfigProperty( Maven2RepositoryLayoutFactory.CONFIG_PROP_CHECKSUMS_ALGORITHMS, "SHA-256,SHA-1");
+        layout = factory.newInstance( session, newRepo( "default" ) );
+        DefaultArtifact artifact = new DefaultArtifact( "g.i.d", "a-i.d", "cls", "ext", "1.0" );
+        URI uri = layout.getLocation( artifact, false );
+        List<Checksum> checksums = layout.getChecksums( artifact, false, uri );
+        assertEquals( 2, checksums.size() );
+        assertChecksum( checksums.get( 0 ), "g/i/d/a-i.d/1.0/a-i.d-1.0-cls.ext.sha256", "SHA-256" );
+        assertChecksum( checksums.get( 1 ), "g/i/d/a-i.d/1.0/a-i.d-1.0-cls.ext.sha1", "SHA-1" );
+    }
+
+    @Test
     public void testArtifactChecksums_Upload()
     {
         DefaultArtifact artifact = new DefaultArtifact( "g.i.d", "a-i.d", "cls", "ext", "1.0" );
@@ -167,6 +181,19 @@ public class Maven2RepositoryLayoutFactoryTest
         List<Checksum> checksums = layout.getChecksums( artifact, true, uri );
         assertEquals( 2, checksums.size() );
         assertChecksum( checksums.get( 0 ), "g/i/d/a-i.d/1.0/a-i.d-1.0-cls.ext.sha1", "SHA-1" );
+        assertChecksum( checksums.get( 1 ), "g/i/d/a-i.d/1.0/a-i.d-1.0-cls.ext.md5", "MD5" );
+    }
+
+    @Test
+    public void testArtifactChecksums_UploadWithCustomAlgorithms() throws NoRepositoryLayoutException
+    {
+        session.setConfigProperty( Maven2RepositoryLayoutFactory.CONFIG_PROP_CHECKSUMS_ALGORITHMS, "SHA-512,MD5" );
+        layout = factory.newInstance( session, newRepo( "default" ) );
+        DefaultArtifact artifact = new DefaultArtifact( "g.i.d", "a-i.d", "cls", "ext", "1.0" );
+        URI uri = layout.getLocation( artifact, true );
+        List<Checksum> checksums = layout.getChecksums( artifact, true, uri );
+        assertEquals( 2, checksums.size() );
+        assertChecksum( checksums.get( 0 ), "g/i/d/a-i.d/1.0/a-i.d-1.0-cls.ext.sha512", "SHA-512" );
         assertChecksum( checksums.get( 1 ), "g/i/d/a-i.d/1.0/a-i.d-1.0-cls.ext.md5", "MD5" );
     }
 

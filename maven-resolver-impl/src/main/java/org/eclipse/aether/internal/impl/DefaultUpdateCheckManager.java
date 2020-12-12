@@ -8,9 +8,9 @@ package org.eclipse.aether.internal.impl;
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * 
+ *
  *  http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -107,7 +107,7 @@ public class DefaultUpdateCheckManager
         if ( check.getLocalLastUpdated() != 0
             && !isUpdatedRequired( session, check.getLocalLastUpdated(), check.getPolicy() ) )
         {
-            LOGGER.debug( "Skipped remote request for {}, locally installed artifact up-to-date.", check.getItem() );
+            LOGGER.debug( "Skipped remote request for {}, locally installed artifact up-to-date", check.getItem() );
 
             check.setRequired( false );
             return;
@@ -121,11 +121,11 @@ public class DefaultUpdateCheckManager
 
         boolean fileExists = check.isFileValid() && artifactFile.exists();
 
-        File touchFile = getTouchFile( artifact, artifactFile );
+        File touchFile = getArtifactTouchFile( artifactFile );
         Properties props = read( touchFile );
 
         String updateKey = getUpdateKey( session, artifactFile, repository );
-        String dataKey = getDataKey( artifact, artifactFile, repository );
+        String dataKey = getDataKey( repository );
 
         String error = getError( props, dataKey );
 
@@ -151,7 +151,7 @@ public class DefaultUpdateCheckManager
         else
         {
             // artifact could not be transferred
-            String transferKey = getTransferKey( session, artifact, artifactFile, repository );
+            String transferKey = getTransferKey( session, repository );
             lastUpdated = getLastUpdated( props, transferKey );
         }
 
@@ -161,11 +161,7 @@ public class DefaultUpdateCheckManager
         }
         else if ( isAlreadyUpdated( session, updateKey ) )
         {
-            if ( LOGGER.isDebugEnabled() )
-            {
-                LOGGER.debug( "Skipped remote request for " + check.getItem()
-                    + ", already updated during this session." );
-            }
+            LOGGER.debug( "Skipped remote request for {}, already updated during this session", check.getItem() );
 
             check.setRequired( false );
             if ( error != null )
@@ -179,7 +175,7 @@ public class DefaultUpdateCheckManager
         }
         else if ( fileExists )
         {
-            LOGGER.debug( "Skipped remote request for {}, locally cached artifact up-to-date.", check.getItem() );
+            LOGGER.debug( "Skipped remote request for {}, locally cached artifact up-to-date", check.getItem() );
 
             check.setRequired( false );
         }
@@ -215,16 +211,18 @@ public class DefaultUpdateCheckManager
     {
         if ( error == null || error.length() <= 0 )
         {
-            return new ArtifactNotFoundException( artifact, repository, "Failure to find " + artifact + " in "
-                + repository.getUrl() + " was cached in the local repository, "
-                + "resolution will not be reattempted until the update interval of " + repository.getId()
+            return new ArtifactNotFoundException( artifact, repository, artifact
+                + " was not found in " + repository.getUrl() + " during a previous attempt. This failure was"
+                + " cached in the local repository and"
+                + " resolution is not reattempted until the update interval of " + repository.getId()
                 + " has elapsed or updates are forced", true );
         }
         else
         {
-            return new ArtifactTransferException( artifact, repository, "Failure to transfer " + artifact + " from "
-                + repository.getUrl() + " was cached in the local repository, "
-                + "resolution will not be reattempted until the update interval of " + repository.getId()
+            return new ArtifactTransferException( artifact, repository, artifact + " failed to transfer from "
+                + repository.getUrl() + " during a previous attempt. This failure"
+                + " was cached in the local repository and"
+                + " resolution is not reattempted until the update interval of " + repository.getId()
                 + " has elapsed or updates are forced. Original error: " + error, true );
         }
     }
@@ -234,7 +232,7 @@ public class DefaultUpdateCheckManager
         if ( check.getLocalLastUpdated() != 0
             && !isUpdatedRequired( session, check.getLocalLastUpdated(), check.getPolicy() ) )
         {
-            LOGGER.debug( "Skipped remote request for {} locally installed metadata up-to-date.", check.getItem() );
+            LOGGER.debug( "Skipped remote request for {} locally installed metadata up-to-date", check.getItem() );
 
             check.setRequired( false );
             return;
@@ -248,11 +246,11 @@ public class DefaultUpdateCheckManager
 
         boolean fileExists = check.isFileValid() && metadataFile.exists();
 
-        File touchFile = getTouchFile( metadata, metadataFile );
+        File touchFile = getMetadataTouchFile( metadataFile );
         Properties props = read( touchFile );
 
         String updateKey = getUpdateKey( session, metadataFile, repository );
-        String dataKey = getDataKey( metadata, metadataFile, check.getAuthoritativeRepository() );
+        String dataKey = getDataKey( metadataFile );
 
         String error = getError( props, dataKey );
 
@@ -278,7 +276,7 @@ public class DefaultUpdateCheckManager
         else
         {
             // metadata could not be transferred
-            String transferKey = getTransferKey( session, metadata, metadataFile, repository );
+            String transferKey = getTransferKey( session, metadataFile, repository );
             lastUpdated = getLastUpdated( props, transferKey );
         }
 
@@ -288,7 +286,7 @@ public class DefaultUpdateCheckManager
         }
         else if ( isAlreadyUpdated( session, updateKey ) )
         {
-            LOGGER.debug( "Skipped remote request for {}, already updated during this session.", check.getItem() );
+            LOGGER.debug( "Skipped remote request for {}, already updated during this session", check.getItem() );
 
             check.setRequired( false );
             if ( error != null )
@@ -302,7 +300,7 @@ public class DefaultUpdateCheckManager
         }
         else if ( fileExists )
         {
-            LOGGER.debug( "Skipped remote request for {}, locally cached metadata up-to-date.", check.getItem() );
+            LOGGER.debug( "Skipped remote request for {}, locally cached metadata up-to-date", check.getItem() );
 
             check.setRequired( false );
         }
@@ -326,16 +324,18 @@ public class DefaultUpdateCheckManager
     {
         if ( error == null || error.length() <= 0 )
         {
-            return new MetadataNotFoundException( metadata, repository, "Failure to find " + metadata + " in "
-                + repository.getUrl() + " was cached in the local repository, "
-                + "resolution will not be reattempted until the update interval of " + repository.getId()
+            return new MetadataNotFoundException( metadata, repository, metadata + " was not found in "
+                + repository.getUrl() + " during a previous attempt."
+                + " This failure was cached in the local repository and"
+                + " resolution is not be reattempted until the update interval of " + repository.getId()
                 + " has elapsed or updates are forced", true );
         }
         else
         {
-            return new MetadataTransferException( metadata, repository, "Failure to transfer " + metadata + " from "
-                + repository.getUrl() + " was cached in the local repository, "
-                + "resolution will not be reattempted until the update interval of " + repository.getId()
+            return new MetadataTransferException( metadata, repository, metadata + "failed to transfer from "
+                + repository.getUrl() + " during a previous attempt."
+                + " This failure was cached in the local repository and"
+                + " resolution will not be reattempted until the update interval of " + repository.getId()
                 + " has elapsed or updates are forced. Original error: " + error, true );
         }
     }
@@ -349,7 +349,7 @@ public class DefaultUpdateCheckManager
         }
         catch ( NumberFormatException e )
         {
-            LOGGER.debug( "Cannot parse lastUpdated date: \'{}\'. Ignoring.", value, e );
+            LOGGER.debug( "Cannot parse last updated date {}, ignoring it", value, e );
             return 1;
         }
     }
@@ -359,17 +359,17 @@ public class DefaultUpdateCheckManager
         return props.getProperty( key + ERROR_KEY_SUFFIX );
     }
 
-    private File getTouchFile( Artifact artifact, File artifactFile )
+    private File getArtifactTouchFile( File artifactFile )
     {
         return new File( artifactFile.getPath() + UPDATED_KEY_SUFFIX );
     }
 
-    private File getTouchFile( Metadata metadata, File metadataFile )
+    private File getMetadataTouchFile( File metadataFile )
     {
         return new File( metadataFile.getParent(), "resolver-status.properties" );
     }
 
-    private String getDataKey( Artifact artifact, File artifactFile, RemoteRepository repository )
+    private String getDataKey( RemoteRepository repository )
     {
         Set<String> mirroredUrls = Collections.emptySet();
         if ( repository.isRepositoryManager() )
@@ -392,19 +392,18 @@ public class DefaultUpdateCheckManager
         return buffer.toString();
     }
 
-    private String getTransferKey( RepositorySystemSession session, Artifact artifact, File artifactFile,
-                                   RemoteRepository repository )
+    private String getTransferKey( RepositorySystemSession session, RemoteRepository repository )
     {
         return getRepoKey( session, repository );
     }
 
-    private String getDataKey( Metadata metadata, File metadataFile, RemoteRepository repository )
+    private String getDataKey( File metadataFile )
     {
         return metadataFile.getName();
     }
 
-    private String getTransferKey( RepositorySystemSession session, Metadata metadata, File metadataFile,
-                                   RemoteRepository repository )
+    private String getTransferKey( RepositorySystemSession session, File metadataFile,
+                                  RemoteRepository repository )
     {
         return metadataFile.getName() + '/' + getRepoKey( session, repository );
     }
@@ -446,8 +445,8 @@ public class DefaultUpdateCheckManager
 
     private int getSessionState( RepositorySystemSession session )
     {
-        String mode = ConfigUtils.getString( session, "true", CONFIG_PROP_SESSION_STATE );
-        if ( Boolean.parseBoolean( mode ) )
+        String mode = ConfigUtils.getString( session, "enabled", CONFIG_PROP_SESSION_STATE );
+        if ( Boolean.parseBoolean( mode ) || "enabled".equalsIgnoreCase( mode ) )
         {
             // perform update check at most once per session, regardless of update policy
             return STATE_ENABLED;
@@ -514,13 +513,12 @@ public class DefaultUpdateCheckManager
 
     public void touchArtifact( RepositorySystemSession session, UpdateCheck<Artifact, ArtifactTransferException> check )
     {
-        Artifact artifact = check.getItem();
         File artifactFile = check.getFile();
-        File touchFile = getTouchFile( artifact, artifactFile );
+        File touchFile = getArtifactTouchFile( artifactFile );
 
         String updateKey = getUpdateKey( session, artifactFile, check.getRepository() );
-        String dataKey = getDataKey( artifact, artifactFile, check.getAuthoritativeRepository() );
-        String transferKey = getTransferKey( session, artifact, artifactFile, check.getRepository() );
+        String dataKey = getDataKey( check.getAuthoritativeRepository() );
+        String transferKey = getTransferKey( session, check.getRepository() );
 
         setUpdated( session, updateKey );
         Properties props = write( touchFile, dataKey, transferKey, check.getException() );
@@ -545,13 +543,12 @@ public class DefaultUpdateCheckManager
 
     public void touchMetadata( RepositorySystemSession session, UpdateCheck<Metadata, MetadataTransferException> check )
     {
-        Metadata metadata = check.getItem();
         File metadataFile = check.getFile();
-        File touchFile = getTouchFile( metadata, metadataFile );
+        File touchFile = getMetadataTouchFile( metadataFile );
 
         String updateKey = getUpdateKey( session, metadataFile, check.getRepository() );
-        String dataKey = getDataKey( metadata, metadataFile, check.getAuthoritativeRepository() );
-        String transferKey = getTransferKey( session, metadata, metadataFile, check.getRepository() );
+        String dataKey = getDataKey( metadataFile );
+        String transferKey = getTransferKey( session, metadataFile, check.getRepository() );
 
         setUpdated( session, updateKey );
         write( touchFile, dataKey, transferKey, check.getException() );

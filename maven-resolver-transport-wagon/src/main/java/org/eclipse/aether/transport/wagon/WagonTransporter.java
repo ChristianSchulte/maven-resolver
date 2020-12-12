@@ -8,9 +8,9 @@ package org.eclipse.aether.transport.wagon;
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * 
+ *
  *  http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -25,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Map;
@@ -34,9 +35,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.maven.wagon.ConnectionException;
 import org.apache.maven.wagon.ResourceDoesNotExistException;
 import org.apache.maven.wagon.StreamingWagon;
 import org.apache.maven.wagon.Wagon;
+import org.apache.maven.wagon.WagonException;
 import org.apache.maven.wagon.authentication.AuthenticationInfo;
 import org.apache.maven.wagon.proxy.ProxyInfo;
 import org.apache.maven.wagon.proxy.ProxyInfoProvider;
@@ -124,14 +127,14 @@ final class WagonTransporter
         }
         catch ( Exception e )
         {
-            LOGGER.debug( "No transport {}", e.getMessage(), e );
-            throw new NoTransporterException( repository, e.getMessage(), e );
+            LOGGER.debug( "No transport {}", e );
+            throw new NoTransporterException( repository, e );
         }
 
         repoAuthContext = AuthenticationContext.forRepository( session, repository );
         proxyAuthContext = AuthenticationContext.forProxy( session, repository );
 
-        wagonAuth = getAuthenticationInfo( repository, repoAuthContext );
+        wagonAuth = getAuthenticationInfo( repoAuthContext );
         wagonProxy = getProxy( repository, proxyAuthContext );
 
         headers = new Properties();
@@ -178,8 +181,7 @@ final class WagonTransporter
         return result;
     }
 
-    private AuthenticationInfo getAuthenticationInfo( RemoteRepository repository,
-                                                      final AuthenticationContext authContext )
+    private AuthenticationInfo getAuthenticationInfo( final AuthenticationContext authContext )
     {
         AuthenticationInfo auth = null;
 
@@ -263,6 +265,7 @@ final class WagonTransporter
 
             proxy = new ProxyInfoProvider()
             {
+                @Override
                 public ProxyInfo getProxyInfo( String protocol )
                 {
                     return prox;
@@ -285,7 +288,7 @@ final class WagonTransporter
     }
 
     private void connectWagon( Wagon wagon )
-        throws Exception
+        throws WagonException
     {
         if ( !headers.isEmpty() )
         {
@@ -298,9 +301,9 @@ final class WagonTransporter
             {
                 // normal for non-http wagons
             }
-            catch ( Exception e )
+            catch ( InvocationTargetException | IllegalAccessException | RuntimeException e )
             {
-                LOGGER.debug( "Could not set user agent for wagon {}: {}", wagon.getClass().getName(), e.getMessage() );
+                LOGGER.debug( "Could not set user agent for Wagon {}", wagon.getClass().getName(), e );
             }
         }
 
@@ -325,17 +328,8 @@ final class WagonTransporter
             }
             catch ( Exception e )
             {
-                String msg =
-                    "Could not apply configuration for " + repository.getId() + " to wagon "
-                        + wagon.getClass().getName() + ":" + e.getMessage();
-                if ( LOGGER.isDebugEnabled() )
-                {
-                    LOGGER.warn( msg, e );
-                }
-                else
-                {
-                    LOGGER.warn( msg );
-                }
+                LOGGER.warn( "Could not apply configuration for {} to Wagon {}",
+                        repository.getId(), wagon.getClass().getName(), e );
             }
         }
 
@@ -351,9 +345,9 @@ final class WagonTransporter
                 wagon.disconnect();
             }
         }
-        catch ( Exception e )
+        catch ( ConnectionException e )
         {
-            LOGGER.debug( "Could not disconnect wagon {}", wagon, e );
+            LOGGER.debug( "Could not disconnect Wagon {}", wagon, e );
         }
     }
 
@@ -440,7 +434,7 @@ final class WagonTransporter
                 wagons.add( wagon );
             }
         }
-        catch ( Exception e )
+        catch ( RuntimeException e )
         {
             throw WagonCancelledException.unwrap( e );
         }
@@ -490,7 +484,7 @@ final class WagonTransporter
     {
 
         void run( Wagon wagon )
-            throws Exception;
+            throws IOException, WagonException;
 
     }
 
@@ -505,8 +499,9 @@ final class WagonTransporter
             this.task = task;
         }
 
+        @Override
         public void run( Wagon wagon )
-            throws Exception
+            throws WagonException
         {
             String src = task.getLocation().toString();
             if ( !wagon.resourceExists( src ) )
@@ -529,34 +524,17 @@ final class WagonTransporter
             this.task = task;
         }
 
+        @Override
         public void run( Wagon wagon )
-            throws Exception
+            throws IOException, WagonException
         {
             String src = task.getLocation().toString();
             File file = task.getDataFile();
             if ( file == null && wagon instanceof StreamingWagon )
             {
-                OutputStream dst = null;
-                try
+                try ( OutputStream dst = task.newOutputStream() )
                 {
-                    dst = task.newOutputStream();
                     ( (StreamingWagon) wagon ).getToStream( src, dst );
-                    dst.close();
-                    dst = null;
-                }
-                finally
-                {
-                    try
-                    {
-                        if ( dst != null )
-                        {
-                            dst.close();
-                        }
-                    }
-                    catch ( final IOException e )
-                    {
-                        // Suppressed due to an exception already thrown in the try block.
-                    }
                 }
             }
             else
@@ -592,45 +570,10 @@ final class WagonTransporter
         private void readTempFile( File dst )
             throws IOException
         {
-            FileInputStream in = null;
-            OutputStream out = null;
-            try
+            try ( FileInputStream in = new FileInputStream( dst );
+                    OutputStream out = task.newOutputStream() )
             {
-                in = new FileInputStream( dst );
-                out = task.newOutputStream();
                 copy( out, in );
-                out.close();
-                out = null;
-                in.close();
-                in = null;
-            }
-            finally
-            {
-                try
-                {
-                    if ( out != null )
-                    {
-                        out.close();
-                    }
-                }
-                catch ( final IOException e )
-                {
-                    // Suppressed due to an exception already thrown in the try block.
-                }
-                finally
-                {
-                    try
-                    {
-                        if ( in != null )
-                        {
-                            in.close();
-                        }
-                    }
-                    catch ( final IOException e )
-                    {
-                        // Suppressed due to an exception already thrown in the try block.
-                    }
-                }
             }
         }
 
@@ -647,35 +590,18 @@ final class WagonTransporter
             this.task = task;
         }
 
+        @Override
         public void run( Wagon wagon )
-            throws Exception
+            throws WagonException, IOException
         {
             String dst = task.getLocation().toString();
             File file = task.getDataFile();
             if ( file == null && wagon instanceof StreamingWagon )
             {
-                InputStream src = null;
-                try
+                try ( InputStream src = task.newInputStream() )
                 {
-                    src = task.newInputStream();
                     // StreamingWagon uses an internal buffer on src input stream.
                     ( (StreamingWagon) wagon ).putFromStream( src, dst, task.getDataLength(), -1 );
-                    src.close();
-                    src = null;
-                }
-                finally
-                {
-                    try
-                    {
-                        if ( src != null )
-                        {
-                            src.close();
-                        }
-                    }
-                    catch ( final IOException e )
-                    {
-                        // Suppressed due to an exception already thrown in the try block.
-                    }
                 }
             }
             else
@@ -699,50 +625,16 @@ final class WagonTransporter
             throws IOException
         {
             File tmp = newTempFile();
-            OutputStream out = null;
-            InputStream in = null;
-            try
+            
+            try ( InputStream in = task.newInputStream();
+                    OutputStream out = new FileOutputStream( tmp ) ) 
             {
-                in = task.newInputStream();
-                out = new FileOutputStream( tmp );
                 copy( out, in );
-                out.close();
-                out = null;
-                in.close();
-                in = null;
             }
             catch ( IOException e )
             {
                 delTempFile( tmp );
                 throw e;
-            }
-            finally
-            {
-                try
-                {
-                    if ( out != null )
-                    {
-                        out.close();
-                    }
-                }
-                catch ( final IOException e )
-                {
-                    // Suppressed due to an exception already thrown in the try block.
-                }
-                finally
-                {
-                    try
-                    {
-                        if ( in != null )
-                        {
-                            in.close();
-                        }
-                    }
-                    catch ( final IOException e )
-                    {
-                        // Suppressed due to an exception already thrown in the try block.
-                    }
-                }
             }
 
             return tmp;
